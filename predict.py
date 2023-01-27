@@ -10,7 +10,7 @@ from yolox.data import COCO_CLASSES
 
 from cog import BasePredictor, Path, Input, BaseModel
 
-YOLO_VERSIONS = ['yolox-s', 'yolox-m', 'yolox-l', 'yolox-x']
+YOLO_VERSIONS = ["yolox-s", "yolox-m", "yolox-l", "yolox-x"]
 
 
 class Output(BaseModel):
@@ -23,13 +23,17 @@ class Predictor(BasePredictor):
         pass
 
     def predict(
-            self,
-            input_image: Path = Input(description="Path to an image"),
-            model_name: str = Input(description="Model name", default='yolox-s', choices=YOLO_VERSIONS),
-            conf: float = Input(description="Confidence threshold", default=0.3),
-            nms: float = Input(description="NMS threshold", default=0.3),
-            tsize: int = Input(description="Resize image to this size", default=640),
-            return_json: bool = Input(description="Return results in json format", default=False),
+        self,
+        input_image: Path = Input(description="Path to an image"),
+        model_name: str = Input(
+            description="Model name", default="yolox-s", choices=YOLO_VERSIONS
+        ),
+        conf: float = Input(description="Confidence threshold", default=0.3),
+        nms: float = Input(description="NMS threshold", default=0.3),
+        tsize: int = Input(description="Resize image to this size", default=640),
+        return_json: bool = Input(
+            description="Return results in json format", default=False
+        ),
     ) -> Output:
         input_image = str(input_image)
         model_name = str(model_name)
@@ -47,21 +51,30 @@ class Predictor(BasePredictor):
         ckpt = torch.load(ckpt, map_location="cpu")
         model.load_state_dict(ckpt["model"])
 
-        predictor = YoloPredictor(model, exp, COCO_CLASSES, None, None, 'gpu', None, False)
+        predictor = YoloPredictor(
+            model, exp, COCO_CLASSES, None, None, "gpu", None, False
+        )
 
         # inference
         outputs, img_info = predictor.inference(input_image)
 
         if bool(return_json):
-            return Output(json_str=get_output_str(outputs[0], img_info["ratio"], predictor.cls_names))
+            return Output(
+                json_str=get_output_str(
+                    outputs[0], img_info["ratio"], predictor.cls_names
+                )
+            )
         else:
             result_image = predictor.visual(outputs[0], img_info, predictor.confthre)
-            output_path = f'outputs.png'
+            output_path = f"outputs.png"
             cv2.imwrite(output_path, result_image)
             return Output(img=Path(output_path))
 
 
 def get_output_str(outputs, ratio, class_names, cls_conf=0.35):
+    if output is None:
+        return json.dumps("")
+
     output = outputs.cpu().numpy()
 
     bboxes = output[:, 0:4]
@@ -73,6 +86,13 @@ def get_output_str(outputs, ratio, class_names, cls_conf=0.35):
     for i in range(len(bboxes)):
         if scores[i] > cls_conf:
             box = bboxes[i]
-            output_dict[f"Det-{i}"] = {'x0':box[0], 'y0': box[1], 'x1':box[2], 'y1':box[3], "score": scores[i], "cls": class_names[int(cls[i])]}
+            output_dict[f"Det-{i}"] = {
+                "x0": box[0],
+                "y0": box[1],
+                "x1": box[2],
+                "y1": box[3],
+                "score": scores[i],
+                "cls": class_names[int(cls[i])],
+            }
 
     return json.dumps(output_dict)
